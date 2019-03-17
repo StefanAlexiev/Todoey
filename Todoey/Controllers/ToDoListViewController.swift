@@ -8,11 +8,14 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class ToDoListViewController: UITableViewController {
+class ToDoListViewController: SwipeTableViewController {
     
     var items : Results<Item>?
     let realm = try! Realm()
+    
+    @IBOutlet weak var searchBar: UISearchBar!
     
     var selectedCategory : Category? {
         didSet{
@@ -22,29 +25,55 @@ class ToDoListViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-//        let currentDateTime = Date()
-//        print(currentDateTime)
-    }
-
-    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return items?.count ?? 1
+        
+        tableView.rowHeight = 75.0
+        tableView.separatorStyle = .none
     }
     
+    override func viewWillAppear(_ animated: Bool) {
+        if let colourHex = selectedCategory?.backgroundColor {
+            
+            title = selectedCategory!.name
+            
+            if let navBarColour = UIColor(hexString: colourHex) {
+                
+                guard let navBar = navigationController?.navigationBar else { fatalError("Navigation bar does not exist")}
+                
+                navBar.barTintColor = navBarColour
+                navBar.tintColor = ContrastColorOf(navBarColour, returnFlat: true)
+                navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor : ContrastColorOf(navBarColour, returnFlat: true)]
+                    
+                searchBar.barTintColor = navBarColour
+                
+            }
+           
+        }
+    }
+
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = items?[indexPath.row] {
+            cell.textLabel?.text = item.title
             
-                    cell.textLabel?.text = item.title
-                    cell.accessoryType = item.done ? .checkmark : .none
-
+            if let backgroundColor = UIColor(hexString: selectedCategory!.backgroundColor)?.darken(byPercentage: CGFloat(indexPath.row) / CGFloat(items!.count)) {
+                
+                cell.backgroundColor = backgroundColor
+                cell.textLabel?.textColor = UIColor.white
+                tableView.backgroundColor = UIColor(hexString: "f5f5f5")
+                
+            }
+            cell.accessoryType = item.done ? .checkmark : .none
         } else {
             cell.textLabel?.text = "No Items Added Yet"
         }
         return cell
     }
-
+    
+    override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return items?.count ?? 1
+    }
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
@@ -104,6 +133,17 @@ class ToDoListViewController: UITableViewController {
         tableView.reloadData()
     }
     
+    override func updateModel(at indexPath: IndexPath) {
+        if let item = items?[indexPath.row] {
+            do {
+                try self.realm.write{
+                    realm.delete(item)
+                }
+            } catch {
+                print("Error with writing items - \(error)")
+            }
+            }
+        }
 
 }
     // MARK: Search Bar Methods
